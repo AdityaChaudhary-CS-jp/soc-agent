@@ -1,0 +1,35 @@
+{
+  "203.0.113.45": {
+    "reputation": "malicious",
+    "score": 92,
+    "tags": [
+      "brute-force",
+      "scanner"
+    ]
+  },
+  "198.51.100.7": {
+    "reputation": "malicious",
+    "score": 88,
+    "tags": [
+      "c2",
+      "malware"
+    ]
+  },
+  "192.0.2.99": {
+    "reputation": "suspicious",
+    "score": 55,
+    "tags": [
+      "tor-exit"
+    ]
+  },
+  "203.0.113.200": {
+    "reputation": "clean",
+    "score": 3,
+    "tags": []
+  },
+  "198.51.100.23": {
+    "reputation": "unknown",
+    "score": null,
+    "tags": []
+  }
+}
