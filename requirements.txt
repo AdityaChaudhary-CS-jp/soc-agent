@@ -3,3 +3,5 @@ uvicorn
 streamlit
 pydantic
 requests
+google-genai
+python-dotenv
