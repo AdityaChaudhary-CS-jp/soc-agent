@@ -32,6 +32,7 @@ incident, score = scored[incident_id]
 
 # Imported here so that listing incidents works without the AI library.
 from google import genai
+from app.agent import approvals
 from app.agent.audit import AuditLog
 from app.agent.guardrails import apply_guardrails
 from app.agent.investigator import investigate
@@ -56,8 +57,11 @@ print(f"\n=== Investigating {incident_id} ===")
 report = investigate(case, client, audit)
 report = apply_guardrails(report, score, audit)
 audit.add("report", report=report)
+queued = approvals.submit_actions(incident, report, audit)
 audit.save()
 
 print("\n=== FINAL REPORT ===")
 print(json.dumps(report, indent=2))
 print("\nAudit log saved to logs/audit_log.jsonl")
+print(f"{len(queued)} proposed action(s) are waiting for human approval.")
+print("See them with: python approve.py list")
