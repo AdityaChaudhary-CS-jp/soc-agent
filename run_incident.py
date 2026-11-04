@@ -32,36 +32,16 @@ incident, score = scored[incident_id]
 
 # Imported here so that listing incidents works without the AI library.
 from google import genai
-from app.agent import approvals
-from app.agent.audit import AuditLog
-from app.agent.guardrails import apply_guardrails
-from app.agent.investigator import investigate
+from app.agent.pipeline import run_pipeline
 from app.config import get_api_key
 
-KEEP = ("id", "timestamp", "type", "raw_severity", "src_ip", "host",
-        "user", "description", "mitre_hint")
-case = {
-    "case_type": "incident",
-    "incident_id": incident_id,
-    "alert_count": incident["alert_count"],
-    "start": incident["start"],
-    "end": incident["end"],
-    "alerts": [{k: a[k] for k in KEEP} for a in incident["alerts"]],
-}
-
 client = genai.Client(api_key=get_api_key())
-audit = AuditLog(incident_id)
-audit.add("rule_based_score", **score)
-
 print(f"\n=== Investigating {incident_id} ===")
-report = investigate(case, client, audit)
-report = apply_guardrails(report, score, audit)
-audit.add("report", report=report)
-queued = approvals.submit_actions(incident, report, audit)
-audit.save()
+report, queued = run_pipeline(incident, score, client)
 
 print("\n=== FINAL REPORT ===")
 print(json.dumps(report, indent=2))
 print("\nAudit log saved to logs/audit_log.jsonl")
 print(f"{len(queued)} proposed action(s) are waiting for human approval.")
 print("See them with: python approve.py list")
+print(f"Make a report file with: python make_report.py {incident_id}")
