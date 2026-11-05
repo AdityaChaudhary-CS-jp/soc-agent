@@ -3,7 +3,7 @@ from pathlib import Path
 from dotenv import dotenv_values
 
 ROOT = Path(__file__).resolve().parents[1]
-MODEL = "gemini-3.5-flash"   # change here if your key needs a different model
+MODEL = "gemini-3.8-flash"   # change here if your key needs a different model
 
 
 def get_api_key() -> str:
