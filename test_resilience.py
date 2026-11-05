@@ -78,6 +78,16 @@ except RuntimeError as e:
     assert "unavailable" in str(e).lower()
 print("PASS: all models retired -> clear error message")
 
+# 4d. Daily free-tier quota used up -> skip that model at once (no retries)
+quota = ("429 RESOURCE_EXHAUSTED. Quota exceeded for metric: generate_content_free_tier_requests, "
+         "limit: 20. quotaId: GenerateRequestsPerDayPerProjectPerModel-FreeTier")
+a = AuditLog("T"); f = Fake(99, error=quota)
+rc = ResilientClient(f, a, fallbacks=("backup",), wait=0)
+r = rc.models.generate_content("main", "hi")
+assert r.text == "ok from backup" and f.calls == ["main", "backup"]
+assert "llm_quota_exhausted" in events(a) and rc.models.used == ["backup"]
+print("PASS: daily quota used up -> next model at once, and the model used is recorded")
+
 # 5. Duplicate / overlapping actions are skipped
 inc = {"incident_id": "INC-001", "ips": ["203.0.113.45"], "hosts": ["web-01"], "users": ["admin"]}
 first = {"recommended_actions": [

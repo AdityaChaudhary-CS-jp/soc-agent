@@ -75,15 +75,16 @@ def run_evaluation(client, limit=None, pause=8.0, progress=print) -> list:
         row = {"case": cid, "kind": kind, "expected": expected,
                "ai_verdict": "error", "final_verdict": "error",
                "severity": "-", "confidence": "-"}
+        resilient = ResilientClient(client, audit, wait=8.0)
         try:
-            report = investigate(build_case(inc),
-                                ResilientClient(client, audit, wait=8.0), audit)
+            report = investigate(build_case(inc), resilient, audit)
             row["ai_verdict"] = report.get("verdict", "missing")
             final = apply_guardrails(copy.deepcopy(report), score)
             row.update(final_verdict=final["verdict"], severity=final["severity"],
                        confidence=final["confidence"])
         except Exception as e:
             row["error"] = str(e)[:300]
+        row["models"] = ", ".join(resilient.models.used)
         row["exact"] = row["final_verdict"] == expected
         row["missed_attack"] = (expected == "true_positive"
                                 and row["final_verdict"] == "false_positive")
@@ -118,6 +119,15 @@ def summarize(results: list) -> dict:
     }
 
 
+def models_used(results: list) -> list:
+    names = []
+    for r in results:
+        for m in r.get("models", "").split(", "):
+            if m and m not in names:
+                names.append(m)
+    return names
+
+
 def write_markdown(results: list, path) -> Path:
     s = summarize(results)
     lines = ["# Evaluation on the synthetic dataset", "",
@@ -128,12 +138,13 @@ def write_markdown(results: list, path) -> Path:
              f"with guardrails **{s['missed_attacks_final']}**",
              f"- False alarms (routine alert not dismissed): **{s['false_alarms_final']}**",
              f"- Errors: **{s['errors']}**", "",
-             "| Case | Expected | AI alone | Final | Severity | Confidence | Result |",
-             "|---|---|---|---|---|---|---|"]
+             f"- Models used: {', '.join(models_used(results)) or 'unknown'}", "",
+             "| Case | Expected | AI alone | Final | Severity | Confidence | Model | Result |",
+             "|---|---|---|---|---|---|---|---|"]
     for r in results:
         lines.append(f"| {r['case']} | {r['expected']} | {r['ai_verdict']} | "
                      f"{r['final_verdict']} | {r['severity']} | {r['confidence']} | "
-                     f"{'correct' if r['exact'] else 'miss'} |")
+                     f"{r.get('models', '')} | {'correct' if r['exact'] else 'miss'} |")
     lines += ["", "_Labels come from the synthetic data generator, so this measures "
               "behaviour on this dataset, not real-world accuracy._", ""]
     path = Path(path)

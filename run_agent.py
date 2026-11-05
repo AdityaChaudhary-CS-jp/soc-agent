@@ -6,6 +6,7 @@ from google import genai
 from app.config import get_api_key
 from app.agent.audit import AuditLog
 from app.agent.investigator import investigate
+from app.agent.llm_retry import ResilientClient
 from app.tools.search_logs import search_logs
 
 alert_id = sys.argv[1] if len(sys.argv) > 1 else "ALR-008"
@@ -13,8 +14,8 @@ matches = [a for a in search_logs(limit=1000) if a["id"] == alert_id]
 if not matches:
     raise SystemExit(f"Alert {alert_id} not found in data/alerts.json")
 
-client = genai.Client(api_key=get_api_key())
 audit = AuditLog(alert_id)
+client = ResilientClient(genai.Client(api_key=get_api_key()), audit)
 
 print(f"=== Investigating {alert_id} ===")
 report = investigate(matches[0], client, audit)

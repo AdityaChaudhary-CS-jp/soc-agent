@@ -9,7 +9,7 @@ import time
 
 # Models are retired over time. If one stops working, the agent skips it
 # and tries the next, but keep this list current.
-FALLBACK_MODELS = ("gemini-3.5-flash", "gemini-3.7-flash", "gemini-3.1-flash-lite")
+FALLBACK_MODELS = ("gemini-3.5-flash", "gemini-3.7-flash")
 TRANSIENT_CODES = {429, 500, 502, 503, 504}
 TRANSIENT_WORDS = ("unavailable", "overloaded", "high demand", "resource_exhausted",
                    "timed out", "timeout", "temporarily", "try again later",
@@ -18,6 +18,13 @@ TRANSIENT_WORDS = ("unavailable", "overloaded", "high demand", "resource_exhaust
 
 UNAVAILABLE_WORDS = ("no longer available", "not_found", "is not found",
                      "does not exist", "is not supported")
+
+
+def is_daily_quota(error) -> bool:
+    """True when a per-DAY free-tier limit is used up. Waiting a few seconds
+    will not help, so the model is skipped until tomorrow."""
+    text = str(error).lower().replace("_", "").replace(" ", "")
+    return "perday" in text
 
 
 def is_model_unavailable(error) -> bool:
@@ -44,6 +51,7 @@ class _Models:
         self._fallbacks = fallbacks
         self._retries = retries
         self._wait = wait
+        self.used = []          # models that gave an answer, in order of first use
 
     def _log(self, event, **data):
         if self._audit is not None:
@@ -55,9 +63,17 @@ class _Models:
         for index, name in enumerate(order):
             for attempt in range(1, self._retries + 1):
                 try:
-                    return self._client.models.generate_content(
+                    result = self._client.models.generate_content(
                         model=name, contents=contents, config=config, **kwargs)
+                    if name not in self.used:
+                        self.used.append(name)
+                    return result
                 except Exception as e:
+                    if is_daily_quota(e):
+                        last_error = e
+                        self._log("llm_quota_exhausted", model=name,
+                                  error=str(e)[:150])
+                        break                      # daily limit: next model
                     if is_model_unavailable(e):
                         last_error = e
                         self._log("llm_model_unavailable", model=name,

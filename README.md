@@ -147,6 +147,10 @@ python evaluate.py 4                   # quick accuracy check on 4 cases
 
 `data/generate_data.py` creates 45 alerts: two real attack chains (brute force to root access; phishing to malware to command-and-control), one ambiguous case (a large outbound transfer to an IP with no threat-intel data, plus a backup job that might explain it), and 30 routine alerts. A mock threat-intel file stands in for services such as VirusTotal or AbuseIPDB.
 
+## Evaluation
+
+One accuracy run on the synthetic dataset: 5/10 exact matches. All 3 real incidents were classified correctly, including the ambiguous one, and no real attack was missed. The 5 misses were routine single alerts that the agent escalated instead of dismissing. Backup models may have answered some cases after the main model's free daily limit was reached. Details: docs/evaluation.md.
+
 ## Limitations
 
 - Data and threat intelligence are synthetic; the system has not been tested on real logs.

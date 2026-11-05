@@ -10,7 +10,7 @@ from pathlib import Path
 
 from google import genai
 
-from app.agent.evaluation import run_evaluation, summarize, write_markdown
+from app.agent.evaluation import models_used, run_evaluation, summarize, write_markdown
 from app.config import get_api_key
 
 limit = int(sys.argv[1]) if len(sys.argv) > 1 else None
@@ -25,6 +25,7 @@ print(f"AI alone:        {s['ai_alone_correct']}/{s['cases']} correct")
 print(f"With guardrails: {s['final_correct']}/{s['cases']} correct")
 print(f"Attacks missed:  {s['missed_attacks_final']} (AI alone: {s['missed_attacks_ai_alone']})")
 print(f"False alarms:    {s['false_alarms_final']}")
+print(f"Models used:     {', '.join(models_used(results)) or 'unknown'}")
 if s["errors"]:
     print(f"Errors:          {s['errors']} (re-run later if the AI was overloaded)")
 
