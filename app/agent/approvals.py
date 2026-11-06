@@ -122,7 +122,19 @@ def list_actions(status=None, incident_id=None) -> list:
 def decide(action_id: int, username: str, approve: bool, comment: str = "") -> dict:
     """Approve or reject one action. Raises PermissionError if the user's
     role is not allowed, ValueError if it was already decided."""
-    role = role_of(username)          # unknown user -> PermissionError
+    try:
+        role = role_of(username)
+    except PermissionError:
+        # Refused attempts by unknown users are logged too.
+        with _connect() as conn:
+            row = conn.execute("SELECT incident_id FROM actions WHERE id=?",
+                               (action_id,)).fetchone()
+        audit = AuditLog(row["incident_id"] if row else f"ACTION-{action_id}")
+        audit.add("approval_denied", action_id=action_id, user=username,
+                  role="unknown", attempted="approve" if approve else "reject",
+                  reason="unknown user")
+        audit.save()
+        raise
     with _connect() as conn:
         row = conn.execute("SELECT * FROM actions WHERE id=?", (action_id,)).fetchone()
         if row is None:
@@ -148,10 +160,13 @@ def decide(action_id: int, username: str, approve: bool, comment: str = "") -> d
             status = "executed_simulated"
         else:
             status = "rejected"
-        conn.execute(
+        cur = conn.execute(
             "UPDATE actions SET status=?, decided_by=?, decided_role=?, decided_at=?,"
-            " decision_comment=?, execution_result=? WHERE id=?",
+            " decision_comment=?, execution_result=? WHERE id=? "
+            "AND status='pending_approval'",
             (status, username, role, _now(), comment, result, action_id))
+        if cur.rowcount == 0:      # someone else decided it a moment ago
+            raise ValueError(f"Action {action_id} was already decided.")
         audit.add("approval_decision", action_id=action_id, user=username,
                   role=role, decision="approved" if approve else "rejected",
                   comment=comment, result=result)

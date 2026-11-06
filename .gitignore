@@ -1,5 +1,16 @@
-__pycache__/
+# secrets
 .env
+.env.*
+.streamlit/secrets.toml
+
+# local state created when you run the project
 *.db
+*.sqlite3
+logs/*.jsonl
+reports/
+
+# environments, editors, caches, archives
 .venv/
 .vscode/
+__pycache__/
+*.zip

@@ -16,7 +16,7 @@ from app.agent.correlation import correlate
 from app.agent.guardrails import apply_guardrails
 from app.agent.investigator import investigate
 from app.agent.llm_retry import ResilientClient
-from app.agent.pipeline import build_case
+from app.agent.pipeline import build_case, pseudo_incident
 from app.agent.scoring import score_incident
 
 ATTACK = {f"ALR-{n:03d}" for n in range(1, 14)}
@@ -38,20 +38,11 @@ def expected_verdict(alert_ids) -> str:
     return "false_positive"
 
 
-def _pseudo_incident(alert: dict) -> dict:
-    return {"incident_id": alert["id"], "alert_count": 1,
-            "start": alert["timestamp"], "end": alert["timestamp"],
-            "ips": [alert["src_ip"]], "hosts": [alert["host"]],
-            "users": [alert["user"]],
-            "mitre_techniques": [alert["mitre_hint"]] if alert["mitre_hint"] else [],
-            "alerts": [alert]}
-
-
 def build_cases(noise_count: int = 7) -> list:
     """3 incidents + noise alerts, interleaved so partial runs are varied."""
     incidents, standalone = correlate()
     real = [(i, "incident") for i in incidents]
-    noise = [(_pseudo_incident(a), "alert") for a in standalone[::4][:noise_count]]
+    noise = [(pseudo_incident(a), "alert") for a in standalone[::4][:noise_count]]
     cases = []
     while real or noise:
         if real:
@@ -115,6 +106,14 @@ def summarize(results: list) -> dict:
         "missed_attacks_final": sum(r["missed_attack"] for r in results),
         "false_alarms_final": sum(r["expected"] == "false_positive"
                                   and r["final_verdict"] != "false_positive" for r in results),
+        # Routine alerts the system called an attack (the worst kind of miss).
+        "noise_true_positive_ai_alone": sum(r["expected"] == "false_positive"
+                                            and r["ai_verdict"] == "true_positive" for r in results),
+        "noise_true_positive_final": sum(r["expected"] == "false_positive"
+                                         and r["final_verdict"] == "true_positive" for r in results),
+        # Routine alerts sent to a person instead of dismissed (safe, but not exact).
+        "noise_sent_to_review_final": sum(r["expected"] == "false_positive"
+                                          and r["final_verdict"] == "needs_review" for r in results),
         "errors": sum(r["final_verdict"] == "error" for r in results),
     }
 
@@ -137,6 +136,9 @@ def write_markdown(results: list, path) -> Path:
              f"- Attacks missed (marked false positive): AI alone **{s['missed_attacks_ai_alone']}**, "
              f"with guardrails **{s['missed_attacks_final']}**",
              f"- False alarms (routine alert not dismissed): **{s['false_alarms_final']}**",
+             f"  - called true_positive: AI alone **{s['noise_true_positive_ai_alone']}**, "
+             f"with guardrails **{s['noise_true_positive_final']}**",
+             f"  - sent to human review (needs_review): **{s['noise_sent_to_review_final']}**",
              f"- Errors: **{s['errors']}**", "",
              f"- Models used: {', '.join(models_used(results)) or 'unknown'}", "",
              "| Case | Expected | AI alone | Final | Severity | Confidence | Model | Result |",

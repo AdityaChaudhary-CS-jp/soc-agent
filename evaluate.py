@@ -24,7 +24,10 @@ print("\n=== RESULT ===")
 print(f"AI alone:        {s['ai_alone_correct']}/{s['cases']} correct")
 print(f"With guardrails: {s['final_correct']}/{s['cases']} correct")
 print(f"Attacks missed:  {s['missed_attacks_final']} (AI alone: {s['missed_attacks_ai_alone']})")
-print(f"False alarms:    {s['false_alarms_final']}")
+print(f"False alarms:    {s['false_alarms_final']} routine alerts not dismissed")
+print(f"  called true_positive: {s['noise_true_positive_final']} "
+      f"(AI alone: {s['noise_true_positive_ai_alone']})")
+print(f"  sent to review:       {s['noise_sent_to_review_final']}")
 print(f"Models used:     {', '.join(models_used(results)) or 'unknown'}")
 if s["errors"]:
     print(f"Errors:          {s['errors']} (re-run later if the AI was overloaded)")

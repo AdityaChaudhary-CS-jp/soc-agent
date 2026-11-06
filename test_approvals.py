@@ -67,3 +67,6 @@ except ValueError as e:
 log = (tmp / "audit.jsonl").read_text()
 assert "approval_denied" in log and "approval_decision" in log
 print("PASS: denials and decisions are in the audit log")
+
+assert '"user": "ghost"' in log and '"role": "unknown"' in log
+print("PASS: a refused attempt by an unknown user is also in the audit log")
